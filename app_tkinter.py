@@ -4,6 +4,9 @@ import random
 import pandas as pd
 from tkinter import messagebox
 from ttkthemes import ThemedTk
+import os
+from datetime import datetime
+from pathlib import Path
 
 # Keeping the core logic functions from the original app
 def _calcular_dv_modulo10(base_str, pesos):
@@ -172,7 +175,11 @@ class BankAccountGenerator:
 
         # Generate button
         generate_btn = ttk.Button(main_frame, text="Gerar Contas", command=self.generate_accounts)
-        generate_btn.grid(row=4, column=0, columnspan=2, pady=20)
+        generate_btn.grid(row=4, column=0, pady=20, sticky=tk.W)
+
+        # Quick export button (saves automatically to Downloads)
+        quick_export_btn = ttk.Button(main_frame, text="📥 Salvar rápido (.xlsx)", command=self.quick_export)
+        quick_export_btn.grid(row=4, column=1, pady=20, sticky=tk.W)
 
         # Results treeview
         self.tree = ttk.Treeview(main_frame, columns=('Agência', 'Conta', 'Banco'), 
@@ -189,8 +196,8 @@ class BankAccountGenerator:
         scrollbar.grid(row=5, column=2, sticky=(tk.N, tk.S))
         self.tree.configure(yscrollcommand=scrollbar.set)
 
-        # Export button
-        export_btn = ttk.Button(main_frame, text="Exportar para Excel", 
+        # Export button (with dialog)
+        export_btn = ttk.Button(main_frame, text="Exportar para Excel (Salvar como...)", 
                                command=self.export_to_excel)
         export_btn.grid(row=6, column=0, columnspan=2, pady=20)
 
@@ -222,7 +229,25 @@ class BankAccountGenerator:
 
         messagebox.showinfo("Sucesso", f"{quantity} contas geradas com sucesso!")
 
+    def quick_export(self):
+        """Exporta rapidamente para a pasta Downloads com nome padronizado."""
+        if not hasattr(self, 'generated_accounts') or not self.generated_accounts:
+            messagebox.showwarning("Aviso", "Gere algumas contas primeiro!")
+            return
+
+        downloads = Path.home() / 'Downloads'
+        downloads.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"contas_geradas_{timestamp}.xlsx"
+        filepath = downloads / filename
+        try:
+            self._save_excel(filepath)
+            messagebox.showinfo("Sucesso", f"Arquivo salvo em: {filepath}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível salvar o arquivo: {e}")
+
     def export_to_excel(self):
+        # Abre diálogo para selecionar onde salvar
         if not hasattr(self, 'generated_accounts') or not self.generated_accounts:
             messagebox.showwarning("Aviso", "Gere algumas contas primeiro!")
             return
@@ -236,12 +261,15 @@ class BankAccountGenerator:
             )
 
             if filepath:
-                df = pd.DataFrame(self.generated_accounts, 
-                                columns=["Agência", "Conta", "Banco"])
-                df.to_excel(filepath, index=False)
+                self._save_excel(Path(filepath))
                 messagebox.showinfo("Sucesso", "Arquivo Excel salvo com sucesso!")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao salvar arquivo: {str(e)}")
+
+    def _save_excel(self, filepath: Path):
+        """Helper para salvar o Excel a partir de generated_accounts."""
+        df = pd.DataFrame(self.generated_accounts, columns=["Agência", "Conta", "Banco"])
+        df.to_excel(filepath, index=False)
 
     def run(self):
         self.root.mainloop()
